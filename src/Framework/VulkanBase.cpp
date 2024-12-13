@@ -148,7 +148,7 @@ static void setup_debug_messenger() {
 	auto ci = debug_messenger(debug_callback);
 
 	check(vkExt_create_debug_messenger(context().instance, &ci, nullptr, &context().debug_messenger),
-			  "Failed to set up debug messenger!");
+		  "Failed to set up debug messenger!");
 }
 void cleanup_swapchain() {
 	// Order:
@@ -165,8 +165,7 @@ void cleanup_swapchain() {
 	//}
 	vkDestroyDescriptorPool(context().device, _imgui_pool, nullptr);
 	vkFreeCommandBuffers(context().device, context().cmd_pools[0],
-						 static_cast<uint32_t>(context().command_buffers.size()),
-						 context().command_buffers.data());
+						 static_cast<uint32_t>(context().command_buffers.size()), context().command_buffers.data());
 	for (Texture* swapchain_img : _swapchain_images) {
 		prm::remove(swapchain_img);
 	}
@@ -294,9 +293,8 @@ static void create_instance() {
 }
 
 static void create_surface() {
-	check(
-		glfwCreateWindowSurface(context().instance, Window::get()->window_handle, nullptr, &context().surface),
-		"Failed to create window surface");
+	check(glfwCreateWindowSurface(context().instance, Window::get()->window_handle, nullptr, &context().surface),
+		  "Failed to create window surface");
 }
 
 static void pick_physical_device() {
@@ -355,6 +353,8 @@ static void pick_physical_device() {
 	}
 	VkPhysicalDeviceProperties2 prop2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
 	prop2.pNext = &context().rt_props;
+	auto& rt_props = context().rt_props;
+	rt_props.pNext = &context().as_props;
 	vkGetPhysicalDeviceProperties2(context().physical_device, &prop2);
 }
 
@@ -367,8 +367,8 @@ static void create_logical_device() {
 														  context().queue_indices.compute_family.value()};
 
 	context().queues.resize(context().queue_indices.gfx_family.has_value() +
-								context().queue_indices.present_family.has_value() +
-								context().queue_indices.compute_family.has_value());
+							context().queue_indices.present_family.has_value() +
+							context().queue_indices.compute_family.has_value());
 	float queue_priority = 1.0f;
 	for (uint32_t queue_family_idx : unique_queue_families) {
 		VkDeviceQueueCreateInfo queue_CI{};
@@ -454,7 +454,7 @@ static void create_logical_device() {
 	}
 
 	check(vkCreateDevice(context().physical_device, &logical_device_CI, nullptr, &context().device),
-			  "Failed to create logical device");
+		  "Failed to create logical device");
 
 	// load_VK_EXTENSIONS(context().instance, vkGetInstanceProcAddr, context().device, vkGetDeviceProcAddr);
 	vkGetDeviceQueue(context().device, context().queue_indices.gfx_family.value(), 0,
@@ -551,7 +551,7 @@ static void create_swapchain() {
 	swapchain_CI.oldSwapchain = VK_NULL_HANDLE;
 
 	check(vkCreateSwapchainKHR(context().device, &swapchain_CI, nullptr, &context().swapchain),
-			  "Failed to create swap chain!");
+		  "Failed to create swap chain!");
 
 	std::vector<VkImage> images;
 	vkGetSwapchainImagesKHR(context().device, context().swapchain, &image_cnt, nullptr);
@@ -577,7 +577,7 @@ static void create_command_pools() {
 	context().cmd_pools.resize(MAX_COMMAND_POOL_THREAD_COUNT);
 	for (unsigned int i = 0; i < MAX_COMMAND_POOL_THREAD_COUNT; i++) {
 		check(vkCreateCommandPool(context().device, &pool_info, nullptr, &context().cmd_pools[i]),
-				  "Failed to create command pool!");
+			  "Failed to create command pool!");
 	}
 }
 
@@ -588,7 +588,7 @@ static void create_command_buffers() {
 	VkCommandBufferAllocateInfo alloc_info = command_buffer_allocate_info(
 		context().cmd_pools[0], VK_COMMAND_BUFFER_LEVEL_PRIMARY, (uint32_t)context().command_buffers.size());
 	check(vkAllocateCommandBuffers(context().device, &alloc_info, context().command_buffers.data()),
-			  "Failed to allocate command buffers!");
+		  "Failed to allocate command buffers!");
 }
 
 static void create_sync_primitives() {
@@ -603,9 +603,9 @@ static void create_sync_primitives() {
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		check<3>({vkCreateSemaphore(context().device, &semaphore_info, nullptr, &_image_available_sem[i]),
-					  vkCreateSemaphore(context().device, &semaphore_info, nullptr, &_render_finished_sem[i]),
-					  vkCreateFence(context().device, &fence_info, nullptr, &_in_flight_fences[i])},
-					 "Failed to create synchronization primitives for a frame");
+				  vkCreateSemaphore(context().device, &semaphore_info, nullptr, &_render_finished_sem[i]),
+				  vkCreateFence(context().device, &fence_info, nullptr, &_in_flight_fences[i])},
+				 "Failed to create synchronization primitives for a frame");
 	}
 }
 
@@ -717,8 +717,7 @@ bool check_validation_layer_support() {
 }
 
 uint32_t prepare_frame() {
-	check(vkWaitForFences(context().device, 1, &_in_flight_fences[current_frame], VK_TRUE, 1000000000),
-			  "Timeout");
+	check(vkWaitForFences(context().device, 1, &_in_flight_fences[current_frame], VK_TRUE, 1000000000), "Timeout");
 
 	uint32_t image_idx;
 	VkResult result = vkAcquireNextImageKHR(context().device, context().swapchain, UINT64_MAX,
@@ -760,9 +759,8 @@ VkResult submit_frame(uint32_t image_idx) {
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores = signal_semaphores;
 
-	check(
-		vkQueueSubmit(context().queues[(int)QueueType::GFX], 1, &submit_info, _in_flight_fences[current_frame]),
-		"Failed to submit draw command buffer");
+	check(vkQueueSubmit(context().queues[(int)QueueType::GFX], 1, &submit_info, _in_flight_fences[current_frame]),
+		  "Failed to submit draw command buffer");
 	current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 	VkPresentInfoKHR present_info{};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

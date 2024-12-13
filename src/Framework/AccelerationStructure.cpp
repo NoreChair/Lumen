@@ -139,17 +139,20 @@ static void cmd_create_tlas(BVH& tlas, VkCommandBuffer cmdBuf, uint32_t countIns
 		tlas = create_acceleration(create_info);
 	}
 
+	// Get scratch memory require, deviceAddress must be alignment
+	int scratch_align = vk::context().as_props.minAccelerationStructureScratchOffsetAlignment;
+	VkDeviceSize size = ((size_info.buildScratchSize / scratch_align) + 2) * scratch_align;
 	// Allocate the scratch memory
 	*scratch_buffer = drm::get({
 		.name = "TLAS Scratch Buffer",
 		.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		.memory_type = vk::BufferType::STAGING,
-		.size = size_info.buildScratchSize,
+		.size = size,
 	});
 	// Update build information
 	build_info.srcAccelerationStructure = update ? tlas.accel : VK_NULL_HANDLE;
 	build_info.dstAccelerationStructure = tlas.accel;
-	build_info.scratchData.deviceAddress = (*scratch_buffer)->get_device_address();
+	build_info.scratchData.deviceAddress = (((*scratch_buffer)->get_device_address() / scratch_align )+ 1) * scratch_align;
 
 	// Build Offsets info: n instances
 	VkAccelerationStructureBuildRangeInfoKHR buildOffsetInfo{countInstance, 0, 0, 0};
@@ -207,11 +210,14 @@ void build_blas(std::vector<BVH>& blases, const std::vector<BlasInput>& input,
 
 	// Allocate the scratch buffers holding the temporary data of the
 	// acceleration structure builder
+
+	int scratch_align = vk::context().as_props.minAccelerationStructureScratchOffsetAlignment;
+	VkDeviceSize size = ((max_scratch_size / scratch_align) + 2) * scratch_align;
 	vk::Buffer* scratch_buffer = drm::get({
 		.name = "BLAS Scratch Buffer",
 		.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		.memory_type = vk::BufferType::GPU,
-		.size = max_scratch_size,
+		.size = size,
 	});
 
 	// Allocate a query pool for storing the needed size for every BLAS
@@ -236,7 +242,8 @@ void build_blas(std::vector<BVH>& blases, const std::vector<BlasInput>& input,
 		// Over the limit or last BLAS element
 		if (batchSize >= batchLimit || idx == nb_blas - 1) {
 			vk::CommandBuffer cmdBuf(true, 0, QueueType::GFX);
-			cmd_create_blas(cmdBuf.handle, indices, buildAs, scratch_buffer->get_device_address(), queryPool);
+			VkDeviceAddress address = ((scratch_buffer->get_device_address() / scratch_align) + 1) * scratch_align;
+			cmd_create_blas(cmdBuf.handle, indices, buildAs, address, queryPool);
 			cmdBuf.submit();
 			if (queryPool) {
 				cmd_compact_blas(cmdBuf.handle, indices, buildAs, queryPool);
